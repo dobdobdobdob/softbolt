@@ -705,7 +705,7 @@ function ArtistSignup({ onClose, onOpenDashboard }) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", border: "1px solid rgba(0,0,0,0.07)" }}>
                     <div>
                       <div style={{ fontSize: 9, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2 }}>Fan Support</div>
-                      <div style={{ fontSize: 12, color: "#000" }}>{tier.label} tier{tier.price ? ` — ${tier.price}/${tier.period}` : " — Free"}</div>
+                      <div style={{ fontSize: 12, color: "#000" }}>{tier.label} tier{tier.price ? ` — $${tier.price}/${tier.period}` : " — Free"}</div>
                     </div>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
@@ -789,9 +789,11 @@ function ArtistPage({ artistName, onClose, onPlay, currentTrack, isPlaying, like
   const artist     = ARTISTS[artistName];
   const allTracks  = [...TRENDING, ...RECOMMENDATIONS];
   const tracks     = artist ? artist.tracks.map(id => allTracks.find(t => t.id === id)).filter(Boolean) : [];
-  const subscribed   = supported?.has(artistName) ?? false;
+  const currentTier  = supported?.get(artistName) ?? null;
+  const subscribed   = currentTier !== null;
   const artistLiked  = likedArtists?.has(artistName) ?? false;
   const [bioExpanded,  setBioExpanded]  = useState(false);
+  const [showTierPicker, setShowTierPicker] = useState(false);
 
   if (!artist) return null;
 
@@ -846,10 +848,10 @@ function ArtistPage({ artistName, onClose, onPlay, currentTrack, isPlaying, like
             </button>
             {/* Support button */}
             <button
-              onClick={() => onSupport && onSupport(artistName)}
+              onClick={() => subscribed ? onSupport && onSupport(artistName, null) : setShowTierPicker(true)}
               style={{ padding: "10px 16px", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "inherit", cursor: "pointer", border: "1px solid", borderColor: subscribed ? "#000" : "rgba(0,0,0,0.15)", background: subscribed ? "#000" : "transparent", color: subscribed ? "#fff" : "#000", transition: "all 0.15s", whiteSpace: "nowrap" }}
             >
-              {subscribed ? "✓ Supporting" : "Support — $2.99 / yr"}
+              {subscribed ? ("✓ " + (currentTier === "superfan" ? "Superfan" : "Supporter")) : "Support"}
             </button>
           </div>
         </div>
@@ -901,6 +903,56 @@ function ArtistPage({ artistName, onClose, onPlay, currentTrack, isPlaying, like
           </div>
         </div>
       </div>
+
+      {/* ── Tier Picker Overlay ── */}
+      {showTierPicker && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Space Mono', monospace" }}>
+          <div onClick={() => setShowTierPicker(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} />
+          <div style={{ position: "relative", background: "#fff", padding: "32px 24px", maxWidth: 380, width: "90%" }}>
+            <div style={{ textAlign: "center", marginBottom: 6 }}>
+              <svg width="20" height="28" viewBox="0 0 16 22" fill="none"><path d="M2 0 L14 0 L8 9 L13 9 L3 22 L6 12 L1 12 Z" fill="#CCFF00"/></svg>
+            </div>
+            <div style={{ textAlign: "center", fontSize: 14, fontWeight: 700, letterSpacing: "0.02em", marginBottom: 4 }}>Support {artistName}</div>
+            <div style={{ textAlign: "center", fontSize: 10, color: "#888", letterSpacing: "0.04em", marginBottom: 24 }}>Choose a tier to support this artist</div>
+
+            {/* Supporter Tier */}
+            <button
+              onClick={() => { onSupport && onSupport(artistName, "supporter"); setShowTierPicker(false); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", background: "#fff", border: "2px solid rgba(0,0,0,0.1)", cursor: "pointer", fontFamily: "inherit", marginBottom: 10, transition: "border-color 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = "#000"}
+              onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(0,0,0,0.1)"}
+            >
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", color: "#000" }}>Supporter</div>
+                <div style={{ fontSize: 9, color: "#888", letterSpacing: "0.04em", marginTop: 4, lineHeight: 1.5 }}>Show your support and help fund their music</div>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#000", flexShrink: 0, marginLeft: 16 }}>$2.99<span style={{ fontSize: 9, color: "#aaa", fontWeight: 400 }}>/yr</span></div>
+            </button>
+
+            {/* Superfan Tier */}
+            <button
+              onClick={() => { onSupport && onSupport(artistName, "superfan"); setShowTierPicker(false); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", background: "#000", border: "2px solid #000", cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}
+            >
+              <div style={{ textAlign: "left" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", color: "#CCFF00" }}>Superfan</span>
+                  <span style={{ fontSize: 7, letterSpacing: "0.1em", textTransform: "uppercase", padding: "2px 6px", background: "#CCFF00", color: "#000", fontWeight: 700 }}>Best Value</span>
+                </div>
+                <div style={{ fontSize: 9, color: "#888", letterSpacing: "0.04em", marginTop: 4, lineHeight: 1.5 }}>Maximum support — help artists grow their brand</div>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#CCFF00", flexShrink: 0, marginLeft: 16 }}>$9.99<span style={{ fontSize: 9, color: "#666", fontWeight: 400 }}>/yr</span></div>
+            </button>
+
+            <button
+              onClick={() => setShowTierPicker(false)}
+              style={{ width: "100%", textAlign: "center", fontSize: 10, color: "#bbb", letterSpacing: "0.04em", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit", padding: "6px" }}
+            >
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -933,7 +985,7 @@ function pctChange(curr, prev) {
   return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
 }
 
-function ArtistDashboard({ onClose }) {
+function ArtistDashboard({ onClose, onPreviewProfile }) {
   const d = DASH_DATA;
   const totalSubs   = d.subscribers.free + d.subscribers.supporter + d.subscribers.superfan;
   const maxPlays    = d.topTracks[0].plays;
@@ -988,8 +1040,20 @@ function ArtistDashboard({ onClose }) {
 
       {/* Artist identity */}
       <div style={{ padding: "16px 16px 12px", flexShrink: 0 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#000", letterSpacing: "-0.01em" }}>{d.artist}</div>
-        <div style={{ fontSize: 9, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 3, marginBottom: 14 }}>{d.genre}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#000", letterSpacing: "-0.01em" }}>{d.artist}</div>
+            <div style={{ fontSize: 9, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 3 }}>{d.genre}</div>
+          </div>
+          <button
+            onClick={() => onPreviewProfile && onPreviewProfile(d.artist)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#000", color: "#CCFF00", border: "none", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "inherit", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Preview Profile
+          </button>
+        </div>
+        <div style={{ height: 14 }} />
 
         {/* Profile link card */}
         <div style={{ border: "1px solid rgba(0,0,0,0.1)", display: "flex", alignItems: "center", overflow: "hidden" }}>
@@ -1567,7 +1631,7 @@ function MusicDiscoveryApp() {
   const [accountOpen, setAccountOpen]         = useState(false);
   const [userProfile, setUserProfile]         = useState({ name: "David", email: "thedobrien@gmail.com", photo: null });
   const [playCount, setPlayCount]             = useState(0);
-  const [supported, setSupported]             = useState(new Set()); // artist names user supports
+  const [supported, setSupported]             = useState(new Map()); // artist name → tier ("supporter" | "superfan")
   const [likedArtists, setLikedArtists]       = useState(new Set()); // artist names user has liked
   const intervalRef = useRef(null);
 
@@ -1959,9 +2023,9 @@ function MusicDiscoveryApp() {
       )}
 
       {/* ── Artist Sign-up ── */}
-      {artistPage && <ArtistPage artistName={artistPage} onClose={() => setArtistPage(null)} onPlay={playTrack} currentTrack={currentTrack} isPlaying={isPlaying} liked={liked} onLike={toggleLike} onArtistTap={setArtistPage} supported={supported} onSupport={name => setSupported(prev => { const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next; })} likedArtists={likedArtists} onLikeArtist={name => setLikedArtists(prev => { const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next; })} />}
+      {artistPage && <ArtistPage artistName={artistPage} onClose={() => setArtistPage(null)} onPlay={playTrack} currentTrack={currentTrack} isPlaying={isPlaying} liked={liked} onLike={toggleLike} onArtistTap={setArtistPage} supported={supported} onSupport={(name, tier) => { setSupported(prev => { const next = new Map(prev); if (tier === null) { next.delete(name); } else { next.set(name, tier); } return next; }); }} likedArtists={likedArtists} onLikeArtist={name => setLikedArtists(prev => { const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next; })} />}
       {artistSignup && <ArtistSignup onClose={() => setArtistSignup(false)} onOpenDashboard={() => { setArtistSignup(false); setArtistDashboard(true); }} />}
-      {artistDashboard && <ArtistDashboard onClose={() => setArtistDashboard(false)} />}
+      {artistDashboard && <ArtistDashboard onClose={() => setArtistDashboard(false)} onPreviewProfile={(name) => { setArtistDashboard(false); setArtistPage(name); }} />}
 
       {/* ── Full Player ── */}
       {playerOpen && (
@@ -1985,7 +2049,6 @@ function MusicDiscoveryApp() {
 }
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<MusicDiscoveryApp />);
-  
   </script>
 
   <script>
