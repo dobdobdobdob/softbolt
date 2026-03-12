@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Softbolt — Business Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0a; min-height: 100vh; font-family: 'Space Mono', 'Courier New', monospace; color: #fff; }
+    #root { width: 100%; min-height: 100vh; }
+    ::selection { background: #CCFF00; color: #000; }
+    input:focus { outline: none; }
+    button { cursor: pointer; font-family: inherit; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script id="app-source" type="text/plain">
+const { useState, useRef, useEffect, useMemo } = React;
+
+// ── Mock Data ────────────────────────────────────────────────────────────────
+
+const MOCK_ARTISTS = [
+  { id: 1,  name: "Astral Drift",    genre: "Electronic",  plays: 1842000, subscribers: 4820,  revenue: 28940,  joined: "2025-03-15", status: "active",    tracks: 24, avatar: "https://picsum.photos/seed/astral/80/80" },
+  { id: 2,  name: "Velvet Haze",     genre: "Indie Pop",   plays: 1654000, subscribers: 3910,  revenue: 22470,  joined: "2025-04-02", status: "active",    tracks: 18, avatar: "https://picsum.photos/seed/velvet/80/80" },
+  { id: 3,  name: "KURO",            genre: "Synthwave",   plays: 1290000, subscribers: 3340,  revenue: 19800,  joined: "2025-02-20", status: "active",    tracks: 31, avatar: "https://picsum.photos/seed/kuro/80/80" },
+  { id: 4,  name: "Mira Sol",        genre: "R&B",         plays: 980000,  subscribers: 2870,  revenue: 16250,  joined: "2025-05-11", status: "active",    tracks: 15, avatar: "https://picsum.photos/seed/mira/80/80" },
+  { id: 5,  name: "Glass Reach",     genre: "Alt Rock",    plays: 876000,  subscribers: 2410,  revenue: 14300,  joined: "2025-01-08", status: "active",    tracks: 22, avatar: "https://picsum.photos/seed/glass/80/80" },
+  { id: 6,  name: "Neon Pulse",      genre: "Electronic",  plays: 742000,  subscribers: 1980,  revenue: 11850,  joined: "2025-06-19", status: "active",    tracks: 12, avatar: "https://picsum.photos/seed/neonp/80/80" },
+  { id: 7,  name: "Echo Noir",       genre: "Ambient",     plays: 695000,  subscribers: 1740,  revenue: 10200,  joined: "2025-03-28", status: "flagged",   tracks: 19, avatar: "https://picsum.photos/seed/echo/80/80" },
+  { id: 8,  name: "Prism Theory",    genre: "Synthwave",   plays: 621000,  subscribers: 1560,  revenue: 9400,   joined: "2025-07-04", status: "active",    tracks: 8,  avatar: "https://picsum.photos/seed/prism/80/80" },
+  { id: 9,  name: "Hollow Sun",      genre: "Metal",       plays: 534000,  subscribers: 1320,  revenue: 7800,   joined: "2025-04-22", status: "active",    tracks: 27, avatar: "https://picsum.photos/seed/hollow/80/80" },
+  { id: 10, name: "Luna Fade",       genre: "Lo-Fi",       plays: 489000,  subscribers: 1180,  revenue: 6950,   joined: "2025-08-13", status: "suspended", tracks: 14, avatar: "https://picsum.photos/seed/luna/80/80" },
+  { id: 11, name: "Storm Circuit",   genre: "Electronic",  plays: 412000,  subscribers: 980,   revenue: 5800,   joined: "2025-05-30", status: "active",    tracks: 10, avatar: "https://picsum.photos/seed/storm/80/80" },
+  { id: 12, name: "Daybreak Atlas",  genre: "Indie Pop",   plays: 378000,  subscribers: 870,   revenue: 5200,   joined: "2025-09-01", status: "active",    tracks: 16, avatar: "https://picsum.photos/seed/daybreak/80/80" },
+  { id: 13, name: "Void Signal",     genre: "Ambient",     plays: 295000,  subscribers: 640,   revenue: 3800,   joined: "2025-06-14", status: "flagged",   tracks: 21, avatar: "https://picsum.photos/seed/void/80/80" },
+  { id: 14, name: "Crimson Wire",    genre: "Punk",        plays: 267000,  subscribers: 590,   revenue: 3400,   joined: "2025-07-22", status: "active",    tracks: 9,  avatar: "https://picsum.photos/seed/crimson/80/80" },
+  { id: 15, name: "Pale Motive",     genre: "Folk",        plays: 198000,  subscribers: 420,   revenue: 2500,   joined: "2025-10-05", status: "active",    tracks: 7,  avatar: "https://picsum.photos/seed/pale/80/80" },
+];
+
+const MONTHLY_REVENUE = [
+  { month: "Jan", revenue: 8200 },
+  { month: "Feb", revenue: 12400 },
+  { month: "Mar", revenue: 15800 },
+  { month: "Apr", revenue: 18600 },
+  { month: "May", revenue: 22100 },
+  { month: "Jun", revenue: 24800 },
+  { month: "Jul", revenue: 27300 },
+  { month: "Aug", revenue: 29100 },
+  { month: "Sep", revenue: 26500 },
+  { month: "Oct", revenue: 31200 },
+  { month: "Nov", revenue: 34800 },
+  { month: "Dec", revenue: 38400 },
+];
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+
+const fmt = (n) => n >= 1000000 ? (n / 1000000).toFixed(1) + "M" : n >= 1000 ? (n / 1000).toFixed(1) + "K" : String(n);
+const fmtMoney = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+// ── Icons ────────────────────────────────────────────────────────────────────
+
+const BoltLogo = () => (
+  <svg width="20" height="28" viewBox="0 0 16 22" fill="none"><path d="M2 0 L14 0 L8 9 L13 9 L3 22 L6 12 L1 12 Z" fill="#CCFF00"/></svg>
+);
+
+const SearchIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+);
+
+const FlagIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+);
+
+const TrashIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+);
+
+const PauseCircleIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+);
+
+const PlayCircleIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+);
+
+const UsersIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+);
+
+const TrendUpIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+);
+
+const DollarIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+);
+
+const MusicIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+);
+
+const LogOutIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+);
+
+const ChevronIcon = ({ size = 12, dir = "down" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: dir === "up" ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}><polyline points="6 9 12 15 18 9"/></svg>
+);
+
+// ── Login Screen ─────────────────────────────────────────────────────────────
+
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) { setError("All fields are required."); return; }
+    setLoading(true);
+    setError("");
+    // Simulate auth
+    setTimeout(() => {
+      if (password.length >= 4) {
+        onLogin({ email: email.trim() });
+      } else {
+        setError("Invalid credentials.");
+        setLoading(false);
+      }
+    }, 1200);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <svg width="36" height="50" viewBox="0 0 16 22" fill="none" style={{ marginBottom: 16 }}><path d="M2 0 L14 0 L8 9 L13 9 L3 22 L6 12 L1 12 Z" fill="#CCFF00"/></svg>
+          <div style={{ fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", fontWeight: 700, color: "#CCFF00" }}>Softbolt</div>
+          <div style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#555", marginTop: 6 }}>Business Dashboard</div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginBottom: 8 }}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="admin@softbolt.io"
+              style={{ width: "100%", padding: "14px 16px", background: "#111", border: "1px solid #222", color: "#fff", fontSize: 13, fontFamily: "inherit", letterSpacing: "0.02em" }}
+            />
+          </div>
+          <div style={{ marginBottom: 28 }}>
+            <label style={{ display: "block", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginBottom: 8 }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              style={{ width: "100%", padding: "14px 16px", background: "#111", border: "1px solid #222", color: "#fff", fontSize: 13, fontFamily: "inherit", letterSpacing: "0.02em" }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 10, color: "#ff4444", letterSpacing: "0.04em", marginBottom: 16, padding: "10px 14px", background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.15)" }}>{error}</div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", padding: "16px", background: "#CCFF00", color: "#000", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", border: "none", fontFamily: "inherit", opacity: loading ? 0.6 : 1, transition: "opacity 0.2s" }}
+          >
+            {loading ? "Authenticating..." : "Sign In"}
+          </button>
+        </form>
+
+        <div style={{ textAlign: "center", marginTop: 32, fontSize: 9, color: "#333", letterSpacing: "0.08em" }}>
+          god.softbolt.io — Authorized personnel only
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({ icon, label, value, sub, accent }) {
+  return (
+    <div style={{ background: "#111", border: "1px solid #1a1a1a", padding: "24px 20px", flex: "1 1 200px", minWidth: 180, animation: "fadeIn 0.4s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ color: accent || "#CCFF00" }}>{icon}</div>
+        <span style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666" }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", color: "#fff", lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.04em", marginTop: 8 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ── Revenue Chart (simple bar chart) ─────────────────────────────────────────
+
+function RevenueChart({ data }) {
+  const max = Math.max(...data.map(d => d.revenue));
+  return (
+    <div style={{ background: "#111", border: "1px solid #1a1a1a", padding: "24px 20px" }}>
+      <div style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginBottom: 20 }}>Monthly Revenue — 2025</div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 140 }}>
+        {data.map((d, i) => (
+          <div key={d.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, animation: `fadeIn 0.3s ease ${i * 0.05}s both` }}>
+            <div style={{ fontSize: 8, color: "#666", letterSpacing: "0.04em" }}>{fmtMoney(d.revenue).replace(".00","")}</div>
+            <div style={{ width: "100%", background: "#CCFF00", height: `${(d.revenue / max) * 100}%`, minHeight: 2, transition: "height 0.4s ease", opacity: 0.85 }} />
+            <div style={{ fontSize: 8, color: "#444", letterSpacing: "0.06em" }}>{d.month}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Top Trending ─────────────────────────────────────────────────────────────
+
+function TopTrending({ artists }) {
+  const top5 = [...artists].sort((a, b) => b.plays - a.plays).slice(0, 5);
+  return (
+    <div style={{ background: "#111", border: "1px solid #1a1a1a", padding: "24px 20px" }}>
+      <div style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginBottom: 20 }}>Top Trending Artists</div>
+      {top5.map((a, i) => (
+        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: i < 4 ? "1px solid #1a1a1a" : "none", animation: `fadeIn 0.3s ease ${i * 0.08}s both` }}>
+          <span style={{ fontSize: 11, color: "#333", width: 20, textAlign: "center", fontWeight: 700 }}>{i + 1}</span>
+          <img src={a.avatar} alt={a.name} style={{ width: 36, height: 36, filter: "grayscale(40%)", opacity: 0.9 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: "#fff", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+            <div style={{ fontSize: 9, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 2 }}>{a.genre} · {fmt(a.plays)} plays</div>
+          </div>
+          <div style={{ fontSize: 11, color: "#CCFF00", fontWeight: 700, letterSpacing: "0.02em" }}>{fmtMoney(a.revenue)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Revenue Split Panel ──────────────────────────────────────────────────────
+
+function RevenueSplit({ totalRevenue }) {
+  const artistShare = totalRevenue * 0.9;
+  const softboltShare = totalRevenue * 0.1;
+  return (
+    <div style={{ background: "#111", border: "1px solid #1a1a1a", padding: "24px 20px" }}>
+      <div style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginBottom: 20 }}>Revenue Split</div>
+      {/* Bar */}
+      <div style={{ display: "flex", height: 8, marginBottom: 20, overflow: "hidden" }}>
+        <div style={{ width: "90%", background: "#CCFF00" }} />
+        <div style={{ width: "10%", background: "#fff" }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 9, color: "#666", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Artists (90%)</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#CCFF00" }}>{fmtMoney(artistShare)}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 9, color: "#666", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Softbolt (10%)</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#fff" }}>{fmtMoney(softboltShare)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Artist Table ─────────────────────────────────────────────────────────────
+
+function ArtistTable({ artists, onFlag, onSuspend, onDelete, onReactivate }) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("plays");
+  const [sortDir, setSortDir] = useState("desc");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null); // { id, action, name }
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setSortBy(col); setSortDir("desc"); }
+  };
+
+  const filtered = useMemo(() => {
+    let list = [...artists];
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(a => a.name.toLowerCase().includes(q) || a.genre.toLowerCase().includes(q));
+    }
+    if (statusFilter !== "all") list = list.filter(a => a.status === statusFilter);
+    list.sort((a, b) => {
+      const mul = sortDir === "desc" ? -1 : 1;
+      if (sortBy === "name") return mul * a.name.localeCompare(b.name);
+      return mul * (a[sortBy] - b[sortBy]);
+    });
+    return list;
+  }, [artists, search, sortBy, sortDir, statusFilter]);
+
+  const SortHeader = ({ col, label, align }) => (
+    <th
+      onClick={() => toggleSort(col)}
+      style={{ padding: "12px 12px", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: sortBy === col ? "#CCFF00" : "#555", cursor: "pointer", textAlign: align || "left", whiteSpace: "nowrap", userSelect: "none", borderBottom: "1px solid #1a1a1a" }}
+    >
+      {label} {sortBy === col && <ChevronIcon size={8} dir={sortDir === "desc" ? "down" : "up"} />}
+    </th>
+  );
+
+  const statusColor = (s) => s === "active" ? "#4ade80" : s === "flagged" ? "#fbbf24" : s === "suspended" ? "#f87171" : "#666";
+  const statusBg = (s) => s === "active" ? "rgba(74,222,128,0.08)" : s === "flagged" ? "rgba(251,191,36,0.08)" : s === "suspended" ? "rgba(248,113,113,0.08)" : "transparent";
+
+  const handleAction = (id, action, name) => {
+    setConfirmAction({ id, action, name });
+  };
+
+  const executeAction = () => {
+    if (!confirmAction) return;
+    const { id, action } = confirmAction;
+    if (action === "flag") onFlag(id);
+    else if (action === "suspend") onSuspend(id);
+    else if (action === "delete") onDelete(id);
+    else if (action === "reactivate") onReactivate(id);
+    setConfirmAction(null);
+    setExpandedId(null);
+  };
+
+  return (
+    <div style={{ background: "#111", border: "1px solid #1a1a1a" }}>
+      {/* Header */}
+      <div style={{ padding: "20px 20px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginRight: "auto" }}>
+          Artist Management — {filtered.length} artist{filtered.length !== 1 ? "s" : ""}
+        </div>
+
+        {/* Status filter */}
+        <div style={{ display: "flex", gap: 0, border: "1px solid #222" }}>
+          {["all", "active", "flagged", "suspended"].map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              style={{ padding: "6px 12px", fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "inherit", background: statusFilter === s ? "#222" : "transparent", color: statusFilter === s ? "#fff" : "#555", border: "none", fontWeight: statusFilter === s ? 700 : 400 }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#0a0a0a", border: "1px solid #222", padding: "6px 12px", minWidth: 200 }}>
+          <SearchIcon size={12} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search artists..."
+            style={{ background: "none", border: "none", color: "#fff", fontSize: 11, fontFamily: "inherit", width: "100%", letterSpacing: "0.02em" }}
+          />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <SortHeader col="name" label="Artist" />
+              <SortHeader col="plays" label="Plays" align="right" />
+              <SortHeader col="subscribers" label="Subs" align="right" />
+              <SortHeader col="revenue" label="Revenue" align="right" />
+              <SortHeader col="tracks" label="Tracks" align="right" />
+              <th style={{ padding: "12px 12px", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#555", textAlign: "center", borderBottom: "1px solid #1a1a1a" }}>Status</th>
+              <th style={{ padding: "12px 12px", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#555", textAlign: "center", borderBottom: "1px solid #1a1a1a" }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((a, i) => (
+              <React.Fragment key={a.id}>
+                <tr style={{ borderBottom: "1px solid #1a1a1a", animation: `fadeIn 0.2s ease ${i * 0.03}s both` }}>
+                  <td style={{ padding: "12px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <img src={a.avatar} alt={a.name} style={{ width: 32, height: 32, filter: "grayscale(40%)", opacity: 0.9 }} />
+                      <div>
+                        <div style={{ fontSize: 12, color: "#fff", letterSpacing: "0.02em" }}>{a.name}</div>
+                        <div style={{ fontSize: 9, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase" }}>{a.genre} · Joined {fmtDate(a.joined)}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontSize: 12, color: "#ccc", letterSpacing: "0.02em" }}>{fmt(a.plays)}</td>
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontSize: 12, color: "#ccc", letterSpacing: "0.02em" }}>{fmt(a.subscribers)}</td>
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontSize: 12, color: "#CCFF00", fontWeight: 700, letterSpacing: "0.02em" }}>{fmtMoney(a.revenue)}</td>
+                  <td style={{ padding: "12px 12px", textAlign: "right", fontSize: 12, color: "#ccc" }}>{a.tracks}</td>
+                  <td style={{ padding: "12px 12px", textAlign: "center" }}>
+                    <span style={{ fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", padding: "4px 10px", color: statusColor(a.status), background: statusBg(a.status), border: `1px solid ${statusColor(a.status)}22`, fontWeight: 700 }}>{a.status}</span>
+                  </td>
+                  <td style={{ padding: "12px 12px", textAlign: "center" }}>
+                    <button
+                      onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
+                      style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 14px", background: expandedId === a.id ? "#222" : "transparent", color: "#888", border: "1px solid #333", fontFamily: "inherit" }}
+                    >
+                      {expandedId === a.id ? "Close" : "Manage"}
+                    </button>
+                  </td>
+                </tr>
+                {expandedId === a.id && (
+                  <tr>
+                    <td colSpan="7" style={{ background: "#0d0d0d", padding: "16px 20px 16px 56px", borderBottom: "1px solid #1a1a1a" }}>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", animation: "slideDown 0.2s ease" }}>
+                        {a.status !== "flagged" && (
+                          <button onClick={() => handleAction(a.id, "flag", a.name)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "inherit", fontWeight: 700, background: "rgba(251,191,36,0.1)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.2)" }}>
+                            <FlagIcon size={12} /> Flag
+                          </button>
+                        )}
+                        {a.status !== "suspended" ? (
+                          <button onClick={() => handleAction(a.id, "suspend", a.name)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "inherit", fontWeight: 700, background: "rgba(248,113,113,0.1)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>
+                            <PauseCircleIcon size={12} /> Suspend
+                          </button>
+                        ) : (
+                          <button onClick={() => handleAction(a.id, "reactivate", a.name)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "inherit", fontWeight: 700, background: "rgba(74,222,128,0.1)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.2)" }}>
+                            <PlayCircleIcon size={12} /> Reactivate
+                          </button>
+                        )}
+                        <button onClick={() => handleAction(a.id, "delete", a.name)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "inherit", fontWeight: 700, background: "rgba(255,0,0,0.06)", color: "#ff4444", border: "1px solid rgba(255,0,0,0.15)", marginLeft: "auto" }}>
+                          <TrashIcon size={12} /> Delete Artist
+                        </button>
+                      </div>
+                      <div style={{ marginTop: 14, display: "flex", gap: 24, flexWrap: "wrap", fontSize: 10, color: "#555", letterSpacing: "0.04em" }}>
+                        <span>Artist Revenue (90%): <span style={{ color: "#CCFF00" }}>{fmtMoney(a.revenue * 0.9)}</span></span>
+                        <span>Softbolt Fee (10%): <span style={{ color: "#fff" }}>{fmtMoney(a.revenue * 0.1)}</span></span>
+                        <span>Tracks: {a.tracks}</span>
+                        <span>Joined: {fmtDate(a.joined)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan="7" style={{ textAlign: "center", padding: "40px 20px", color: "#333", fontSize: 11, letterSpacing: "0.04em" }}>No artists found.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Confirmation Modal */}
+      {confirmAction && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={() => setConfirmAction(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)" }} />
+          <div style={{ position: "relative", background: "#111", border: "1px solid #222", padding: "32px 28px", maxWidth: 400, width: "90%", textAlign: "center", animation: "fadeIn 0.2s ease" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "0.02em", marginBottom: 10 }}>
+              {confirmAction.action === "delete" ? "Delete" : confirmAction.action === "suspend" ? "Suspend" : confirmAction.action === "flag" ? "Flag" : "Reactivate"} Artist
+            </div>
+            <div style={{ fontSize: 11, color: "#888", letterSpacing: "0.02em", lineHeight: 1.7, marginBottom: 28 }}>
+              Are you sure you want to {confirmAction.action} <span style={{ color: "#fff", fontWeight: 700 }}>{confirmAction.name}</span>?
+              {confirmAction.action === "delete" && " This action cannot be undone. All tracks and data will be permanently removed."}
+              {confirmAction.action === "suspend" && " This artist will be unable to access their dashboard or receive payouts."}
+              {confirmAction.action === "flag" && " This artist will be marked for review by the content team."}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmAction(null)} style={{ flex: 1, padding: "12px", background: "#222", color: "#888", border: "none", fontFamily: "inherit", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>Cancel</button>
+              <button onClick={executeAction} style={{ flex: 1, padding: "12px", background: confirmAction.action === "delete" ? "#ff4444" : confirmAction.action === "reactivate" ? "#4ade80" : "#CCFF00", color: "#000", border: "none", fontFamily: "inherit", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
+                {confirmAction.action === "delete" ? "Delete" : confirmAction.action === "suspend" ? "Suspend" : confirmAction.action === "flag" ? "Flag" : "Reactivate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Dashboard ───────────────────────────────────────────────────────────
+
+function Dashboard({ admin, onLogout }) {
+  const [artists, setArtists] = useState(MOCK_ARTISTS);
+  const [notifications, setNotifications] = useState([]);
+  const notifId = useRef(0);
+
+  const addNotif = (message, type = "success") => {
+    const id = ++notifId.current;
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
+  };
+
+  const totalRevenue = artists.reduce((s, a) => s + a.revenue, 0);
+  const totalPlays = artists.reduce((s, a) => s + a.plays, 0);
+  const totalSubs = artists.reduce((s, a) => s + a.subscribers, 0);
+  const totalUsers = 42850; // Mock
+
+  const handleFlag = (id) => {
+    setArtists(prev => prev.map(a => a.id === id ? { ...a, status: "flagged" } : a));
+    const name = artists.find(a => a.id === id)?.name;
+    addNotif(`${name} has been flagged for review.`, "warning");
+  };
+  const handleSuspend = (id) => {
+    setArtists(prev => prev.map(a => a.id === id ? { ...a, status: "suspended" } : a));
+    const name = artists.find(a => a.id === id)?.name;
+    addNotif(`${name} has been suspended.`, "error");
+  };
+  const handleDelete = (id) => {
+    const name = artists.find(a => a.id === id)?.name;
+    setArtists(prev => prev.filter(a => a.id !== id));
+    addNotif(`${name} has been permanently deleted.`, "error");
+  };
+  const handleReactivate = (id) => {
+    setArtists(prev => prev.map(a => a.id === id ? { ...a, status: "active" } : a));
+    const name = artists.find(a => a.id === id)?.name;
+    addNotif(`${name} has been reactivated.`, "success");
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0a0a0a" }}>
+      {/* Top Bar */}
+      <div style={{ position: "sticky", top: 0, zIndex: 100, background: "#0a0a0a", borderBottom: "1px solid #1a1a1a", padding: "0 24px", display: "flex", alignItems: "center", height: 56 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginRight: "auto" }}>
+          <BoltLogo />
+          <span style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 700, color: "#CCFF00" }}>Softbolt</span>
+          <span style={{ fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase", color: "#333", marginLeft: 4 }}>Admin</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span style={{ fontSize: 10, color: "#555", letterSpacing: "0.04em" }}>{admin.email}</span>
+          <button onClick={onLogout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", background: "transparent", color: "#555", border: "1px solid #222", fontFamily: "inherit", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            <LogOutIcon size={12} /> Sign Out
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 60px" }}>
+        {/* Stat Cards */}
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
+          <StatCard icon={<DollarIcon />} label="Total Revenue" value={fmtMoney(totalRevenue)} sub={"Softbolt share: " + fmtMoney(totalRevenue * 0.1)} accent="#CCFF00" />
+          <StatCard icon={<UsersIcon />} label="Total Users" value={fmt(totalUsers)} sub="+2,140 this month" accent="#818cf8" />
+          <StatCard icon={<TrendUpIcon />} label="Total Subscribers" value={fmt(totalSubs)} sub={artists.length + " active artists"} accent="#4ade80" />
+          <StatCard icon={<MusicIcon />} label="Total Plays" value={fmt(totalPlays)} sub="Across all artists" accent="#f472b6" />
+        </div>
+
+        {/* Charts Row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          <RevenueChart data={MONTHLY_REVENUE} />
+          <RevenueSplit totalRevenue={totalRevenue} />
+        </div>
+
+        {/* Top Trending + Revenue by Artist */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          <TopTrending artists={artists} />
+          <div style={{ background: "#111", border: "1px solid #1a1a1a", padding: "24px 20px" }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginBottom: 20 }}>Revenue by Artist</div>
+            {[...artists].sort((a, b) => b.revenue - a.revenue).slice(0, 8).map((a, i) => {
+              const maxRev = artists.reduce((m, x) => Math.max(m, x.revenue), 0);
+              return (
+                <div key={a.id} style={{ marginBottom: 12, animation: `fadeIn 0.3s ease ${i * 0.06}s both` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <span style={{ fontSize: 10, color: "#ccc", letterSpacing: "0.02em" }}>{a.name}</span>
+                    <span style={{ fontSize: 10, color: "#CCFF00", fontWeight: 700 }}>{fmtMoney(a.revenue)}</span>
+                  </div>
+                  <div style={{ height: 4, background: "#1a1a1a", position: "relative" }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, height: "100%", background: "#CCFF00", width: `${(a.revenue / maxRev) * 100}%`, opacity: 0.7, transition: "width 0.4s ease" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Artist Table */}
+        <ArtistTable
+          artists={artists}
+          onFlag={handleFlag}
+          onSuspend={handleSuspend}
+          onDelete={handleDelete}
+          onReactivate={handleReactivate}
+        />
+
+        {/* Footer */}
+        <div style={{ textAlign: "center", padding: "40px 0 20px", fontSize: 9, color: "#222", letterSpacing: "0.08em" }}>
+          god.softbolt.io — Softbolt Business Dashboard v1.0 · Authorized access only
+        </div>
+      </div>
+
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div style={{ position: "fixed", top: 16, right: 24, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, maxWidth: 360 }}>
+          {notifications.map(n => (
+            <div key={n.id} style={{ padding: "12px 18px", fontSize: 11, letterSpacing: "0.02em", color: n.type === "error" ? "#ff4444" : n.type === "warning" ? "#fbbf24" : "#4ade80", background: n.type === "error" ? "rgba(255,68,68,0.08)" : n.type === "warning" ? "rgba(251,191,36,0.08)" : "rgba(74,222,128,0.08)", border: `1px solid ${n.type === "error" ? "rgba(255,68,68,0.2)" : n.type === "warning" ? "rgba(251,191,36,0.2)" : "rgba(74,222,128,0.2)"}`, animation: "slideDown 0.3s ease", fontFamily: "'Space Mono', monospace" }}>
+              {n.message}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── App Root ─────────────────────────────────────────────────────────────────
+
+function AdminApp() {
+  const [admin, setAdmin] = useState(null);
+
+  if (!admin) return <LoginScreen onLogin={setAdmin} />;
+  return <Dashboard admin={admin} onLogout={() => setAdmin(null)} />;
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<AdminApp />);
+  </script>
+
+  <script>
+    (function() {
+      try {
+        var jsxSource = document.getElementById('app-source').textContent;
+        var compiled = Babel.transform(jsxSource, { presets: ['react'], filename: 'admin.jsx' }).code;
+        var script = document.createElement('script');
+        script.textContent = compiled;
+        document.body.appendChild(script);
+      } catch(e) {
+        console.error('Admin dashboard compile error:', e);
+        document.getElementById('root').innerHTML = '<div style="color:#ff4444;padding:40px;text-align:center;font-family:monospace"><div style="margin-bottom:12px">Failed to load dashboard</div><div style="color:#888;font-size:11px">' + e.message + '</div></div>';
+      }
+    })();
+  </script>
+</body>
+</html>
