@@ -2601,9 +2601,321 @@ function CreatePlaylistOverlay({ availableArtists, onClose, onCreate }) {
   );
 }
 
+// ── Listener Sign-Up ─────────────────────────────────────────────────────────
+
+function ListenerSignup({ onComplete, onSkip }) {
+  const [step, setStep] = useState(0); // 0=welcome, 1=name, 2=contact, 3=verify
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [focused, setFocused] = useState({});
+  const codeRefs = [useRef(null), useRef(null), useRef(null), useRef(null), useRef(null), useRef(null)];
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(""); };
+
+  const inputStyle = (isFocused) => ({
+    width: "100%", background: "transparent", border: "1px solid",
+    borderColor: isFocused ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.12)",
+    color: "#111", fontSize: 13, letterSpacing: "0.03em",
+    padding: "13px 14px", outline: "none", fontFamily: "inherit",
+  });
+
+  const focusProps = (key) => ({
+    onFocus: () => setFocused(f => ({ ...f, [key]: true })),
+    onBlur:  () => setFocused(f => ({ ...f, [key]: false })),
+    style: inputStyle(focused[key]),
+  });
+
+  const canProceed = () => {
+    if (step === 1) return form.firstName.trim() && form.lastName.trim();
+    if (step === 2) return form.email.trim() && form.email.includes("@");
+    if (step === 3) return code.join("").length === 6;
+    return true;
+  };
+
+  const handleSendCode = () => {
+    setSending(true);
+    // Generate a 6-digit code (mock — in production this would be server-side)
+    const newCode = String(Math.floor(100000 + Math.random() * 900000));
+    setGeneratedCode(newCode);
+    setTimeout(() => {
+      setSending(false);
+      setStep(3);
+    }, 800);
+  };
+
+  const handleCodeInput = (index, value) => {
+    if (!/^\d*$/.test(value)) return;
+    const newCode = [...code];
+    if (value.length > 1) {
+      // Pasted — fill from this index forward
+      const digits = value.slice(0, 6 - index).split("");
+      digits.forEach((d, i) => { if (index + i < 6) newCode[index + i] = d; });
+      setCode(newCode);
+      const nextIdx = Math.min(index + digits.length, 5);
+      codeRefs[nextIdx]?.current?.focus();
+    } else {
+      newCode[index] = value;
+      setCode(newCode);
+      if (value && index < 5) codeRefs[index + 1]?.current?.focus();
+    }
+    setError("");
+  };
+
+  const handleCodeKeyDown = (index, e) => {
+    if (e.key === "Backspace" && !code[index] && index > 0) {
+      codeRefs[index - 1]?.current?.focus();
+    }
+  };
+
+  const handleVerify = () => {
+    const entered = code.join("");
+    if (entered === generatedCode) {
+      // Save to localStorage
+      const userData = { firstName: form.firstName, lastName: form.lastName, email: form.email, phone: form.phone, signedUpAt: new Date().toISOString() };
+      try { localStorage.setItem("sb_user", JSON.stringify(userData)); } catch(e) {}
+      onComplete(userData);
+    } else {
+      setError("Incorrect code. Please try again.");
+      setCode(["", "", "", "", "", ""]);
+      codeRefs[0]?.current?.focus();
+    }
+  };
+
+  const btnDisabled = !canProceed();
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#fff", display: "flex", flexDirection: "column", fontFamily: "'Space Mono','Courier New',monospace", overflowX: "hidden" }}>
+
+      {/* ── Top bar ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.07)", flexShrink: 0 }}>
+        <button onClick={step === 0 ? (onSkip || (() => {})) : () => { setStep(s => s - 1); setError(""); }} style={{ fontSize: 22, color: "#000", lineHeight: 1, padding: 4, width: 32, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+          {step === 0 ? "" : "‹"}
+        </button>
+
+        {/* Step dots */}
+        {step > 0 && (
+          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+            {[1,2,3].map(n => (
+              <div key={n} style={{ width: n < step ? 14 : n === step ? 18 : 5, height: 5, background: n <= step ? "#000" : "#e0e0e0", transition: "all 0.2s" }} />
+            ))}
+          </div>
+        )}
+
+        <div style={{ width: 32 }} />
+      </div>
+
+      {/* ── Scrollable body ── */}
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "32px 24px 40px" }}>
+
+        {/* ── STEP 0: Welcome ── */}
+        {step === 0 && (
+          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: 32 }}>
+                <BoltLogo w={48} h={65} />
+              </div>
+
+              <div style={{ fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaa", marginBottom: 10 }}>Welcome</div>
+              <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1, marginBottom: 16 }}>Discover music<br/>on your terms.</h1>
+              <div style={{ width: 28, height: 1, background: "rgba(0,0,0,0.12)", marginBottom: 28 }} />
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 40 }}>
+                {[
+                  ["No algorithms", "Charts ranked purely by plays. Recommendations based on what you actually listen to."],
+                  ["Support artists directly", "90% of every dollar goes straight to the artist. No middlemen."],
+                  ["Your library, your way", "Create playlists, earn badges, and build a listening history that's transparent and private."],
+                ].map(([title, desc]) => (
+                  <div key={title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                    <div style={{ width: 1, background: "#CCFF00", alignSelf: "stretch", flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#000", letterSpacing: "0.02em" }}>{title}</div>
+                      <div style={{ fontSize: 11, color: "#666", letterSpacing: "0.02em", lineHeight: 1.6, marginTop: 4 }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <button
+                onClick={() => setStep(1)}
+                style={{ width: "100%", padding: "15px 0", background: "#000", color: "#CCFF00", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Create Account
+              </button>
+              {onSkip && (
+                <button
+                  onClick={onSkip}
+                  style={{ width: "100%", padding: "12px 0", background: "transparent", color: "#aaa", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Take a look around
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 1: Name ── */}
+        {step === 1 && (
+          <div>
+            <div style={{ fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaa", marginBottom: 10 }}>Step 1 of 3</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8 }}>What's your name?</h2>
+            <div style={{ width: 24, height: 1, background: "rgba(0,0,0,0.12)", marginBottom: 32 }} />
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", marginBottom: 8 }}>First Name</label>
+              <input
+                autoFocus
+                value={form.firstName}
+                onChange={e => set("firstName", e.target.value)}
+                placeholder="First name"
+                {...focusProps("firstName")}
+              />
+            </div>
+
+            <div style={{ marginBottom: 32 }}>
+              <label style={{ display: "block", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", marginBottom: 8 }}>Last Name</label>
+              <input
+                value={form.lastName}
+                onChange={e => set("lastName", e.target.value)}
+                placeholder="Last name"
+                {...focusProps("lastName")}
+              />
+            </div>
+
+            <button
+              onClick={() => canProceed() && setStep(2)}
+              disabled={btnDisabled}
+              style={{ width: "100%", padding: "15px 0", background: btnDisabled ? "rgba(0,0,0,0.06)" : "#000", color: btnDisabled ? "#bbb" : "#CCFF00", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", border: "none", cursor: btnDisabled ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 2: Email & Phone ── */}
+        {step === 2 && (
+          <div>
+            <div style={{ fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaa", marginBottom: 10 }}>Step 2 of 3</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8 }}>How do we reach you?</h2>
+            <div style={{ width: 24, height: 1, background: "rgba(0,0,0,0.12)", marginBottom: 32 }} />
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", marginBottom: 8 }}>Email Address</label>
+              <input
+                autoFocus
+                type="email"
+                value={form.email}
+                onChange={e => set("email", e.target.value)}
+                placeholder="you@email.com"
+                {...focusProps("email")}
+              />
+            </div>
+
+            <div style={{ marginBottom: 32 }}>
+              <label style={{ display: "block", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", marginBottom: 8 }}>Phone Number <span style={{ color: "#ccc" }}>(optional)</span></label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={e => set("phone", e.target.value)}
+                placeholder="(555) 123-4567"
+                {...focusProps("phone")}
+              />
+            </div>
+
+            <button
+              onClick={() => canProceed() && handleSendCode()}
+              disabled={btnDisabled || sending}
+              style={{ width: "100%", padding: "15px 0", background: (btnDisabled || sending) ? "rgba(0,0,0,0.06)" : "#000", color: (btnDisabled || sending) ? "#bbb" : "#CCFF00", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", border: "none", cursor: (btnDisabled || sending) ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+            >
+              {sending ? "Sending code..." : "Send Verification Code"}
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 3: Verification Code ── */}
+        {step === 3 && (
+          <div>
+            <div style={{ fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaa", marginBottom: 10 }}>Step 3 of 3</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8 }}>Enter your code</h2>
+            <div style={{ width: 24, height: 1, background: "rgba(0,0,0,0.12)", marginBottom: 16 }} />
+            <p style={{ fontSize: 11, color: "#888", letterSpacing: "0.02em", lineHeight: 1.6, marginBottom: 32 }}>
+              We sent a 6-digit code to <span style={{ color: "#000", fontWeight: 700 }}>{form.email}</span>
+            </p>
+
+            {/* Mock: show the code for demo purposes */}
+            <div style={{ background: "rgba(204,255,0,0.1)", border: "1px solid rgba(204,255,0,0.3)", padding: "10px 14px", marginBottom: 24, fontSize: 10, color: "#666", letterSpacing: "0.06em" }}>
+              Demo code: <span style={{ color: "#000", fontWeight: 700, letterSpacing: "0.2em" }}>{generatedCode}</span>
+            </div>
+
+            {/* Code input boxes */}
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 24 }}>
+              {code.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={codeRefs[i]}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={i === 0 ? 6 : 1}
+                  value={digit}
+                  onChange={e => handleCodeInput(i, e.target.value)}
+                  onKeyDown={e => handleCodeKeyDown(i, e)}
+                  autoFocus={i === 0}
+                  style={{
+                    width: 44, height: 52, textAlign: "center", fontSize: 20, fontWeight: 700,
+                    fontFamily: "inherit", border: "1px solid",
+                    borderColor: digit ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.12)",
+                    outline: "none", background: digit ? "rgba(204,255,0,0.06)" : "transparent",
+                    color: "#000", transition: "all 0.15s",
+                  }}
+                />
+              ))}
+            </div>
+
+            {error && (
+              <div style={{ fontSize: 10, color: "#e74c3c", letterSpacing: "0.06em", textAlign: "center", marginBottom: 16 }}>{error}</div>
+            )}
+
+            <button
+              onClick={handleVerify}
+              disabled={!canProceed()}
+              style={{ width: "100%", padding: "15px 0", background: !canProceed() ? "rgba(0,0,0,0.06)" : "#000", color: !canProceed() ? "#bbb" : "#CCFF00", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", border: "none", cursor: !canProceed() ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+            >
+              Verify & Create Account
+            </button>
+
+            <button
+              onClick={() => { handleSendCode(); }}
+              style={{ width: "100%", padding: "12px 0", background: "transparent", color: "#999", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", border: "none", cursor: "pointer", fontFamily: "inherit", marginTop: 16, textDecoration: "underline", textUnderlineOffset: 3 }}
+            >
+              Resend code
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ─────────────────────────────────────────────────────────────────
 
 function MusicDiscoveryApp() {
+  // ── Auth state (persistent via localStorage) ──
+  const [signedUp, setSignedUp] = useState(() => {
+    try { return !!localStorage.getItem("sb_user"); } catch(e) { return false; }
+  });
+  const [showSignup, setShowSignup] = useState(() => {
+    try {
+      if (localStorage.getItem("sb_user")) return false; // already signed up
+      const hash = window.location.hash;
+      if (hash === "#browse") return false; // "Take a look around" — skip signup
+      return true; // default: show signup (including #signup hash)
+    } catch(e) { return true; }
+  });
+
   const [tab, setTab]               = useState("trending");
   const [query, setQuery]           = useState("");
   const [genreFilter, setGenreFilter] = useState("All");
@@ -2625,7 +2937,13 @@ function MusicDiscoveryApp() {
   const [userPlaylists, setUserPlaylists]     = useState([]);
   const [accountOpen, setAccountOpen]         = useState(false);
   const [signedIn, setSignedIn]               = useState(true);
-  const [userProfile, setUserProfile]         = useState({ name: "David", email: "thedobrien@gmail.com", photo: null });
+  const [userProfile, setUserProfile]         = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sb_user") || "null");
+      if (saved) return { name: saved.firstName + " " + saved.lastName, email: saved.email, photo: null };
+    } catch(e) {}
+    return { name: "Guest", email: "", photo: null };
+  });
   const [playCount, setPlayCount]             = useState(0);
   const [supported, setSupported]             = useState(new Map()); // artist name → tier ("supporter" | "superfan")
   const [likedArtists, setLikedArtists]       = useState(new Set()); // artist names user has liked
@@ -3379,6 +3697,18 @@ function MusicDiscoveryApp() {
           liked={currentTrack ? liked.has(currentTrack.id) : false}
           onLike={() => currentTrack && toggleLike(currentTrack.id)}
           onClose={() => setPlayerOpen(false)}
+        />
+      )}
+
+      {/* ── Listener Sign-Up Gate ── */}
+      {showSignup && (
+        <ListenerSignup
+          onComplete={(userData) => {
+            setSignedUp(true);
+            setShowSignup(false);
+            setUserProfile({ name: userData.firstName + " " + userData.lastName, email: userData.email, photo: null });
+          }}
+          onSkip={() => setShowSignup(false)}
         />
       )}
     </div>
